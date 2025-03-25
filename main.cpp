@@ -123,14 +123,16 @@ bool openBox(uint32_t y, uint32_t x)
     // PLEASE, PROVIDE YOUR SOLUTION HERE
         
     const auto& state = box.getState();
-
+    
+    // System of linear equations: (y * x) x (y * x + 1)
     std::vector<std::vector<int>> equations(y * x, std::vector<int>(y * x + 1, 0));
 
     for (uint32_t i = 0; i < y; ++i)
         for (uint32_t j = 0; j < x; ++j) {
             int idx = i * x + j;
-            equations[idx][idx] = 1;
+            equations[idx][idx] = 1; // always 1 on the diagonal
 
+            // Influence of neighboring cells (up, down, left, right)
             if (i > 0) equations[idx][(i - 1) * x + j] = 1;
             if (i < y - 1) equations[idx][(i + 1) * x + j] = 1;
             if (j > 0) equations[idx][i * x + (j - 1)] = 1;
@@ -138,38 +140,43 @@ bool openBox(uint32_t y, uint32_t x)
 
             equations[idx][y * x] = state[i][j] ? 1 : 0;
         }
-
+    // Gaussian elimination to solve the system of equations
     for (uint32_t col = 0; col < y * x; ++col) {
         uint32_t row = col;
-        while (row < y * x && equations[row][col] == 0) ++row;
+        
+        while (row < y * x && equations[row][col] == 0) ++row; // find pivot row
         if (row == y * x) continue;
 
         std::swap(equations[row], equations[col]);
-
+        
+        // Eliminate the current column below the pivot using XOR
         for (uint32_t i = col + 1; i < y * x; ++i)
             if (equations[i][col] == 1)
                 for (uint32_t k = 0; k <= y * x; ++k)
-                    equations[i][k] ^= equations[col][k];
+                    equations[i][k] ^= equations[col][k]; // XOR to eliminate (mod 2)
     }
 
     std::vector<bool> solution(y * x, false);
     
+    // Back substitution
     for (int row = y * x - 1; row >= 0; --row) {
         int pivot = -1;
         for (uint32_t col = 0; col < y * x; ++col)
-            if (equations[row][col] == 1) {
+            if (equations[row][col] == 1) { // find pivot in current row
                 pivot = col;
                 break;
             }
 
-        if (pivot == -1) continue;
+        if (pivot == -1) continue; // no pivot, skip row
         solution[pivot] = equations[row][y * x];
 
+        // Eliminate the current pivot from previous rows
         for (int prev = row - 1; prev >= 0; --prev)
             if (equations[prev][pivot] == 1)
-                equations[prev][y * x] ^= solution[pivot];
+                equations[prev][y * x] ^= solution[pivot]; // XOR to eliminate
     }
 
+    // Apply the solution
     for (uint32_t i = 0; i < y; ++i)
         for (uint32_t j = 0; j < x; ++j)
             if (solution[i * x + j])
